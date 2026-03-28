@@ -110,14 +110,26 @@ A living document of design decisions made during the conception phase.
 
 ## DM-007 — Tax and deduction rules hardcoded in service
 
-**Decision:** Rules are hardcoded in `PayrollCalculationService`. The rules:
+**Decision:** Rules are externalized to `application.yml` via `@ConfigurationProperties`. The calculator reads rates from an injected config object — no magic numbers in code.
+
+**Config structure (`application.yml`):**
+```yaml
+payroll:
+  rules:
+    income-tax-rate: 0.20
+    social-contribution-rate: 0.05
+    high-salary-threshold: 5000.00
+    high-salary-surcharge-rate: 0.05
+```
+
+**Rules applied:**
 
 | Rule | Code | Type | Calculation |
 |------|------|------|-------------|
 | Base salary | `BASE_SALARY` | EARNING | Employee's current base salary |
 | Bonus | `BONUS` | EARNING | Employee's bonus (if > 0) |
-| Income tax | `INCOME_TAX` | DEDUCTION | 20% of base salary |
-| Social contribution | `SOCIAL_CONTRIBUTION` | DEDUCTION | 5% of base salary |
-| High salary surcharge | `HIGH_SALARY_SURCHARGE` | DEDUCTION | 5% of base salary, only if base salary > 5000 |
+| Income tax | `INCOME_TAX` | DEDUCTION | `baseSalary × income-tax-rate` |
+| Social contribution | `SOCIAL_CONTRIBUTION` | DEDUCTION | `baseSalary × social-contribution-rate` |
+| High salary surcharge | `HIGH_SALARY_SURCHARGE` | DEDUCTION | `baseSalary × high-salary-surcharge-rate`, only if `baseSalary > high-salary-threshold` |
 
-**Rationale:** A tax bracket table would be over-engineering for this exercise. Hardcoding with clear constants and documentation is the right trade-off.
+**Rationale:** Tax rates change in real systems without code changes. Externalizing rates to config means a rate update requires only a config change and restart — not a recompile and redeploy. `PayrollCalculator` remains a pure service injected with a config bean, keeping it fully testable. A DB rules table (Option C) would be more flexible but is over-engineering for this exercise scope.

@@ -702,34 +702,52 @@ Create in `com.talenteo.hr.payroll.dto`:
 
 ### US-23 — PayrollCalculator
 
-**As a developer, I want to** implement `PayrollCalculator` as a pure calculation component with no DB or Spring dependencies so the business rules are isolated and trivially unit testable.
+**As a developer, I want to** implement `PayrollCalculator` as a pure calculation component that reads rates from config so business rules are isolated, testable, and changeable without code modifications.
 
 **Description:**
-Create `com.talenteo.hr.payroll.service.PayrollCalculator` as a Spring `@Component`:
+Create `com.talenteo.hr.payroll.config.PayrollProperties` as a `@ConfigurationProperties(prefix = "payroll.rules")` bean:
+- `incomeTaxRate` (BigDecimal)
+- `socialContributionRate` (BigDecimal)
+- `highSalaryThreshold` (BigDecimal)
+- `highSalaryRatesSurchargeRate` (BigDecimal)
 
+Add to `application.yml`:
+```yaml
+payroll:
+  rules:
+    income-tax-rate: 0.20
+    social-contribution-rate: 0.05
+    high-salary-threshold: 5000.00
+    high-salary-surcharge-rate: 0.05
+```
+
+Create `com.talenteo.hr.payroll.service.PayrollCalculator` as a `@Component` injecting `PayrollProperties`.
+
+Method signature:
 ```java
 public List<PayrollLineItem> calculate(BigDecimal baseSalary, BigDecimal bonus)
 ```
 
-Applies the 5 hardcoded rules:
+Applies 5 rules using rates from `PayrollProperties`:
 1. `BASE_SALARY` (EARNING) = `baseSalary`
 2. `BONUS` (EARNING) = `bonus` — only if `bonus > 0`
-3. `INCOME_TAX` (DEDUCTION) = `baseSalary × 0.20`, label: `"Income Tax (20%)"`
-4. `SOCIAL_CONTRIBUTION` (DEDUCTION) = `baseSalary × 0.05`, label: `"Social Contribution (5%)"`
-5. `HIGH_SALARY_SURCHARGE` (DEDUCTION) = `baseSalary × 0.05` — only if `baseSalary > 5000`, label: `"High Salary Surcharge (5%)"`
+3. `INCOME_TAX` (DEDUCTION) = `baseSalary × incomeTaxRate`
+4. `SOCIAL_CONTRIBUTION` (DEDUCTION) = `baseSalary × socialContributionRate`
+5. `HIGH_SALARY_SURCHARGE` (DEDUCTION) = `baseSalary × highSalaryRatesSurchargeRate` — only if `baseSalary > highSalaryThreshold`
 
-Returns a list of `PayrollLineItem` objects (without `id` or `payrollSlip` set — those are set by the service before persisting).
+Returns detached `PayrollLineItem` objects — no `id` or `payrollSlip` set. `PayrollService` sets the slip reference before persisting.
 
 **Acceptance Criteria:**
-- [ ] No `@Autowired`, no repository, no DB access in this class
-- [ ] `BONUS` line item is excluded when `bonus` is zero or null
-- [ ] `HIGH_SALARY_SURCHARGE` is only included when `baseSalary > 5000`
+- [ ] No repository, no DB access in this class
+- [ ] Rates injected via `PayrollProperties` — no magic numbers in the calculator
+- [ ] `BONUS` line item excluded when `bonus` is zero or null
+- [ ] `HIGH_SALARY_SURCHARGE` only included when `baseSalary > highSalaryThreshold`
 - [ ] All `BigDecimal` calculations use `setScale(2, RoundingMode.HALF_UP)`
-- [ ] Returns correct list of line items for all salary combinations
+- [ ] Label built dynamically from config value (e.g., `"Income Tax (20%)"`)
 
 **Technical Notes:**
-- Package: `com.talenteo.hr.payroll.service`
-- DM-007: hardcoded rules
+- Package: `com.talenteo.hr.payroll.service` (calculator), `com.talenteo.hr.payroll.config` (properties)
+- DM-007 updated: rates from `application.yml` via `@ConfigurationProperties`, not hardcoded
 - This class gets its own dedicated unit test in US-29
 
 ---
@@ -902,12 +920,13 @@ Test cases:
 
 **Acceptance Criteria:**
 - [ ] All 7 test cases pass
-- [ ] No Spring context loaded (plain `new PayrollCalculator()`)
+- [ ] `PayrollProperties` instantiated directly with test values — no Spring context needed
 - [ ] Amounts verified with exact `BigDecimal` equality
 - [ ] Boundary condition at salary=5000 is explicitly tested
 
 **Technical Notes:**
-- DM-007: hardcoded rules
+- DM-007: rates from `PayrollProperties` (config), not magic numbers
+- Instantiate `PayrollCalculator` with a manually built `PayrollProperties` object in tests
 - Use `assertThat(result).hasSize(n)` and verify each line item
 
 ---
