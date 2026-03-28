@@ -590,7 +590,7 @@ Create `com.talenteo.hr.employee.controller.EmployeeController` with `@RestContr
 
 ## EPIC-4: Payroll Feature
 
-> Goal: Full payroll feature end-to-end covering all 5 use cases (UC-PR-01 to UC-PR-05).
+> Goal: Core payroll feature covering single-employee use cases (UC-PR-01, UC-PR-03 to UC-PR-05). Bulk processing is in EPIC-4.5.
 
 ---
 
@@ -612,10 +612,10 @@ Create `com.talenteo.hr.payroll.domain.PayrollLineItem`:
 - `LineItemCode` enum: `BASE_SALARY`, `BONUS`, `INCOME_TAX`, `SOCIAL_CONTRIBUTION`, `HIGH_SALARY_SURCHARGE`
 
 **Acceptance Criteria:**
-- [ ] Both entities map to their tables without Hibernate errors
-- [ ] `@OneToMany` on `PayrollSlip.lineItems` uses `CascadeType.ALL`
-- [ ] All monetary fields are `BigDecimal`
-- [ ] Enums are stored as `STRING`
+- [x] Both entities map to their tables without Hibernate errors
+- [x] `@OneToMany` on `PayrollSlip.lineItems` uses `CascadeType.ALL`
+- [x] All monetary fields are `BigDecimal`
+- [x] Enums are stored as `STRING`
 
 **Technical Notes:**
 - Package: `com.talenteo.hr.payroll.domain`
@@ -640,9 +640,9 @@ Page<PayrollSlip> findByEmployeeIdOrderByPeriodYearDescPeriodMonthDesc(
 ```
 
 **Acceptance Criteria:**
-- [ ] `findByEmployeeIdAndPeriodYearAndPeriodMonth` returns `Optional` for duplicate detection
-- [ ] `findByEmployeeId...` supports paginated history ordered by period descending
-- [ ] No business logic in the repository
+- [x] `findByEmployeeIdAndPeriodYearAndPeriodMonth` returns `Optional` for duplicate detection
+- [x] `findByEmployeeId...` supports paginated history ordered by period descending
+- [x] No business logic in the repository
 
 **Technical Notes:**
 - Package: `com.talenteo.hr.payroll.repository`
@@ -658,8 +658,8 @@ Page<PayrollSlip> findByEmployeeIdOrderByPeriodYearDescPeriodMonthDesc(
 Create `com.talenteo.hr.payroll.repository.PayrollLineItemRepository` extending `JpaRepository<PayrollLineItem, Long>`. No custom query methods needed — line items are read through the `PayrollSlip.lineItems` collection.
 
 **Acceptance Criteria:**
-- [ ] Repository extends `JpaRepository<PayrollLineItem, Long>`
-- [ ] No custom methods needed at this stage
+- [x] Repository extends `JpaRepository<PayrollLineItem, Long>`
+- [x] No custom methods needed at this stage
 
 **Technical Notes:**
 - Package: `com.talenteo.hr.payroll.repository`
@@ -690,9 +690,9 @@ Create in `com.talenteo.hr.payroll.dto`:
 - `List<BulkSkippedEntry> skipped` — each: `employeeId`, `employeeName`, `String reason`
 
 **Acceptance Criteria:**
-- [ ] `BulkPayrollRequest` has validation annotations on `year` and `month`
-- [ ] `PayrollSlipDto` includes `lineItems` list
-- [ ] `BulkPayrollResult` has both `created` and `skipped` lists
+- [x] `BulkPayrollRequest` has validation annotations on `year` and `month`
+- [x] `PayrollSlipDto` includes `lineItems` list
+- [x] `BulkPayrollResult` has both `created` and `skipped` lists
 
 **Technical Notes:**
 - TD-004: single DTO class per resource
@@ -738,12 +738,12 @@ Applies 5 rules using rates from `PayrollProperties`:
 Returns detached `PayrollLineItem` objects — no `id` or `payrollSlip` set. `PayrollService` sets the slip reference before persisting.
 
 **Acceptance Criteria:**
-- [ ] No repository, no DB access in this class
-- [ ] Rates injected via `PayrollProperties` — no magic numbers in the calculator
-- [ ] `BONUS` line item excluded when `bonus` is zero or null
-- [ ] `HIGH_SALARY_SURCHARGE` only included when `baseSalary > highSalaryThreshold`
-- [ ] All `BigDecimal` calculations use `setScale(2, RoundingMode.HALF_UP)`
-- [ ] Label built dynamically from config value (e.g., `"Income Tax (20%)"`)
+- [x] No repository, no DB access in this class
+- [x] Rates injected via `PayrollProperties` — no magic numbers in the calculator
+- [x] `BONUS` line item excluded when `bonus` is zero or null
+- [x] `HIGH_SALARY_SURCHARGE` only included when `baseSalary > highSalaryThreshold`
+- [x] All `BigDecimal` calculations use `setScale(2, RoundingMode.HALF_UP)`
+- [x] Label built dynamically from config value (e.g., `"Income Tax (20%)"`)
 
 **Technical Notes:**
 - Package: `com.talenteo.hr.payroll.service` (calculator), `com.talenteo.hr.payroll.config` (properties)
@@ -772,16 +772,133 @@ Steps:
 8. Return mapped `PayrollSlipDto`
 
 **Acceptance Criteria:**
-- [ ] Throws `ResourceNotFoundException` for unknown employee
-- [ ] Throws `InactiveEmployeeException` for `INACTIVE` employee (422)
-- [ ] Throws `PayrollAlreadyExistsException` for duplicate period (409)
-- [ ] `netSalary` is correctly computed and stored on the slip
-- [ ] Line items are persisted with correct type, code, label, and amount
-- [ ] Past and future periods are accepted (no date restriction)
+- [x] Throws `ResourceNotFoundException` for unknown employee
+- [x] Throws `InactiveEmployeeException` for `INACTIVE` employee (422)
+- [x] Throws `PayrollAlreadyExistsException` for duplicate period (409)
+- [x] `netSalary` is correctly computed and stored on the slip
+- [x] Line items are persisted with correct type, code, label, and amount
+- [x] Past and future periods are accepted (no date restriction)
 
 **Technical Notes:**
 - UC-PR-01, DM-004, DM-006
 - Package: `com.talenteo.hr.payroll.service`
+
+---
+
+### US-25.5 — PayrollService: recalculate
+
+**As a developer, I want to** implement `recalculatePayroll` in `PayrollService` so HR can correct a DRAFT slip before finalizing.
+
+**Description:**
+Implement:
+```
+recalculatePayroll(Long employeeId, int year, int month) → PayrollSlipDto
+```
+Steps:
+1. Fetch slip by `(employeeId, year, month)` — throw `ResourceNotFoundException` if absent
+2. Guard: status must be `DRAFT` — throw `PayrollAlreadyFinalizedException` if `FINALIZED`
+3. Delete existing slip (cascades to line items)
+4. Call `calculatePayroll(employeeId, year, month)` — fresh calculation from current salary/bonus and current config rules
+5. Return new `PayrollSlipDto`
+
+**Acceptance Criteria:**
+- [x] Throws `ResourceNotFoundException` if slip not found (404)
+- [x] Throws `PayrollAlreadyFinalizedException` if slip is FINALIZED (409)
+- [x] Old line items are deleted and replaced with fresh ones
+- [x] New slip reflects current employee salary/bonus at recalculation time
+- [x] Returns new slip with status `DRAFT`
+
+**Technical Notes:**
+- UC-005: recalculation only allowed on DRAFT slips
+- Reuses `calculatePayroll()` internally — no duplicated logic
+- DB unique constraint requires deletion before re-insert
+
+---
+
+### US-26 — PayrollService: finalize
+
+**As a developer, I want to** implement `finalizePayroll` in `PayrollService` so UC-PR-03 is fulfilled with immutability enforcement.
+
+**Description:**
+Implement:
+```
+finalizePayroll(Long employeeId, int year, int month) → PayrollSlipDto
+```
+Steps:
+1. Fetch slip by `(employeeId, year, month)` — throw `ResourceNotFoundException` if absent
+2. Guard: status must be `DRAFT` — throw `PayrollAlreadyFinalizedException` if already `FINALIZED`
+3. Set `status = FINALIZED`
+4. Save and return updated `PayrollSlipDto`
+
+**Acceptance Criteria:**
+- [x] Throws `ResourceNotFoundException` if slip not found (404)
+- [x] Throws `PayrollAlreadyFinalizedException` if already finalized (409)
+- [x] Returns slip with `status = FINALIZED`
+- [x] Line items are unchanged after finalization
+
+**Technical Notes:**
+- UC-PR-03, DM-005, UC-001
+
+---
+
+### US-27 — PayrollService: read and list history
+
+**As a developer, I want to** implement `getPayrollSlip` and `listPayrollHistory` in `PayrollService` so UC-PR-04 and UC-PR-05 are fulfilled.
+
+**Description:**
+Implement:
+```
+getPayrollSlip(Long employeeId, int year, int month) → PayrollSlipDto
+listPayrollHistory(Long employeeId, Pageable pageable) → Page<PayrollSlipDto>
+```
+
+`getPayrollSlip`: fetch by `(employeeId, year, month)` — throw `ResourceNotFoundException` if absent. Return full DTO with line items.
+
+`listPayrollHistory`: verify employee exists (throw `ResourceNotFoundException` if not), fetch paginated slips ordered by period descending.
+
+**Acceptance Criteria:**
+- [x] `getPayrollSlip` throws `ResourceNotFoundException` if slip not found
+- [x] `listPayrollHistory` throws `ResourceNotFoundException` if employee not found
+- [x] History is ordered by `periodYear DESC`, `periodMonth DESC`
+- [x] Both return `lineItems` in the DTO
+
+**Technical Notes:**
+- UC-PR-04, UC-PR-05
+
+---
+
+### US-28 — PayrollController
+
+**As a developer, I want to** implement `PayrollController` with all 5 payroll endpoints wired to `PayrollService` so the payroll API is complete and documented via Swagger.
+
+**Description:**
+Create `com.talenteo.hr.payroll.controller.PayrollController` with `@RestController`:
+
+| Method | Path | Service call | Status |
+|---|---|---|---|
+| POST | `/api/v1/employees/{id}/payroll/{year}/{month}` | `calculatePayroll` | 201 |
+| PUT | `/api/v1/employees/{id}/payroll/{year}/{month}/recalculate` | `recalculatePayroll` | 200 |
+| POST | `/api/v1/employees/{id}/payroll/{year}/{month}/finalize` | `finalizePayroll` | 200 |
+| GET | `/api/v1/employees/{id}/payroll/{year}/{month}` | `getPayrollSlip` | 200 |
+| GET | `/api/v1/employees/{id}/payroll` | `listPayrollHistory` | 200 |
+
+- `@Min(2000)` on `{year}` path variable, `@Min(1) @Max(12)` on `{month}`
+- `@Operation` and `@ApiResponse` Swagger annotations on each endpoint
+
+**Acceptance Criteria:**
+- [x] All 5 endpoints present with correct HTTP status codes
+- [x] Path variable constraints are validated (`@Validated` on controller class)
+- [x] Swagger UI displays all 5 payroll endpoints
+
+**Technical Notes:**
+- Package: `com.talenteo.hr.payroll.controller`
+- TD-010: Swagger annotations
+
+---
+
+## EPIC-4.5: Bulk Payroll Processing
+
+> Goal: Bulk payroll calculation for all active employees in a given period (UC-PR-02). Standalone epic because it crosses the single-employee boundary and has its own endpoint.
 
 ---
 
@@ -813,86 +930,27 @@ Steps:
 
 ---
 
-### US-26 — PayrollService: finalize
+### US-28.5 — PayrollController: bulk endpoint
 
-**As a developer, I want to** implement `finalizePayroll` in `PayrollService` so UC-PR-03 is fulfilled with immutability enforcement.
-
-**Description:**
-Implement:
-```
-finalizePayroll(Long employeeId, int year, int month) → PayrollSlipDto
-```
-Steps:
-1. Fetch slip by `(employeeId, year, month)` — throw `ResourceNotFoundException` if absent
-2. Guard: status must be `DRAFT` — throw `PayrollAlreadyFinalizedException` if already `FINALIZED`
-3. Set `status = FINALIZED`
-4. Save and return updated `PayrollSlipDto`
-
-**Acceptance Criteria:**
-- [ ] Throws `ResourceNotFoundException` if slip not found (404)
-- [ ] Throws `PayrollAlreadyFinalizedException` if already finalized (409)
-- [ ] Returns slip with `status = FINALIZED`
-- [ ] Line items are unchanged after finalization
-
-**Technical Notes:**
-- UC-PR-03, DM-005, UC-001
-
----
-
-### US-27 — PayrollService: read and list history
-
-**As a developer, I want to** implement `getPayrollSlip` and `listPayrollHistory` in `PayrollService` so UC-PR-04 and UC-PR-05 are fulfilled.
+**As a developer, I want to** add the bulk payroll endpoint to `PayrollController` so UC-PR-02 is reachable via the API.
 
 **Description:**
-Implement:
-```
-getPayrollSlip(Long employeeId, int year, int month) → PayrollSlipDto
-listPayrollHistory(Long employeeId, Pageable pageable) → Page<PayrollSlipDto>
-```
-
-`getPayrollSlip`: fetch by `(employeeId, year, month)` — throw `ResourceNotFoundException` if absent. Return full DTO with line items.
-
-`listPayrollHistory`: verify employee exists (throw `ResourceNotFoundException` if not), fetch paginated slips ordered by period descending.
-
-**Acceptance Criteria:**
-- [ ] `getPayrollSlip` throws `ResourceNotFoundException` if slip not found
-- [ ] `listPayrollHistory` throws `ResourceNotFoundException` if employee not found
-- [ ] History is ordered by `periodYear DESC`, `periodMonth DESC`
-- [ ] Both return `lineItems` in the DTO
-
-**Technical Notes:**
-- UC-PR-04, UC-PR-05
-
----
-
-### US-28 — PayrollController
-
-**As a developer, I want to** implement `PayrollController` with all 5 payroll endpoints wired to `PayrollService` so the payroll API is complete and documented via Swagger.
-
-**Description:**
-Create `com.talenteo.hr.payroll.controller.PayrollController` with `@RestController`:
+Add to the existing `PayrollController`:
 
 | Method | Path | Service call | Status |
 |---|---|---|---|
-| POST | `/api/v1/employees/{id}/payroll/{year}/{month}` | `calculatePayroll` | 201 |
 | POST | `/api/v1/payroll/bulk` | `bulkCalculatePayroll` | 200 |
-| POST | `/api/v1/employees/{id}/payroll/{year}/{month}/finalize` | `finalizePayroll` | 200 |
-| GET | `/api/v1/employees/{id}/payroll/{year}/{month}` | `getPayrollSlip` | 200 |
-| GET | `/api/v1/employees/{id}/payroll` | `listPayrollHistory` | 200 |
 
-- `@Valid` on `BulkPayrollRequest`
-- `@Min(2000)` on `{year}` path variable, `@Min(1) @Max(12)` on `{month}`
-- `@Operation` and `@ApiResponse` Swagger annotations on each endpoint
+- `@Valid` on `BulkPayrollRequest` body
+- `@Operation` and `@ApiResponse` Swagger annotations
 
 **Acceptance Criteria:**
-- [ ] All 5 endpoints present with correct HTTP status codes
-- [ ] Bulk endpoint uses `@Valid` on request body
-- [ ] Path variable constraints are validated (`@Validated` on controller class)
-- [ ] Swagger UI displays all 5 payroll endpoints
+- [ ] Endpoint returns 200 with `BulkPayrollResult`
+- [ ] `@Valid` enforces year/month constraints
+- [ ] Swagger UI displays the bulk endpoint
 
 **Technical Notes:**
-- Package: `com.talenteo.hr.payroll.controller`
-- TD-010: Swagger annotations
+- `BulkPayrollRequest` already defined in US-22
 
 ---
 
@@ -1073,10 +1131,10 @@ Test cases:
 12. `GET .../payroll` — existing history → 200 paginated, ordered by period descending
 
 **Acceptance Criteria:**
-- [ ] All 12 test cases pass against real PostgreSQL
-- [ ] Line item amounts are verified for at least one happy path test
-- [ ] `netSalary` is verified against expected calculation
-- [ ] Bulk result `created` and `skipped` lists are asserted
+- [x] All 12 test cases pass against real PostgreSQL
+- [x] Line item amounts are verified for at least one happy path test
+- [x] `netSalary` is verified against expected calculation
+- [x] Bulk result `created` and `skipped` lists are asserted
 
 ---
 
@@ -1087,6 +1145,7 @@ Test cases:
 | EPIC-1: Project Setup | 8 | US-01 to US-08 |
 | EPIC-2: Common Infrastructure | 2 | US-09 to US-10 |
 | EPIC-3: Employee Management | 8 | US-11 to US-18 |
-| EPIC-4: Payroll Feature | 10 | US-19 to US-28 |
+| EPIC-4: Payroll Feature | 10 | US-19 to US-28 (excl. US-25, incl. US-25.5) |
+| EPIC-4.5: Bulk Payroll Processing | 2 | US-25, US-28.5 |
 | EPIC-5: Testing | 6 | US-29 to US-34 |
-| **Total** | **34** | |
+| **Total** | **35** | |

@@ -133,3 +133,15 @@ payroll:
 | High salary surcharge | `HIGH_SALARY_SURCHARGE` | DEDUCTION | `baseSalary × high-salary-surcharge-rate`, only if `baseSalary > high-salary-threshold` |
 
 **Rationale:** Tax rates change in real systems without code changes. Externalizing rates to config means a rate update requires only a config change and restart — not a recompile and redeploy. `PayrollCalculator` remains a pure service injected with a config bean, keeping it fully testable. A DB rules table (Option C) would be more flexible but is over-engineering for this exercise scope.
+
+---
+
+## UC-005 — Recalculation of DRAFT payroll is supported
+
+**Decision:** A DRAFT payroll slip can be recalculated. Recalculation deletes the existing DRAFT slip and its line items, then runs a fresh calculation from the employee's current salary/bonus and current config rules. Finalized slips cannot be recalculated.
+
+**Rationale:** Without recalculation, the two-step calculate → finalize flow has no purpose. Recalculation gives HR the ability to correct a slip before committing it. It also makes finalization meaningful — it signals "this version is locked, no further changes allowed."
+
+**Future extensions (out of scope for this exercise):**
+- **Manual line item adjustment** — allow HR to add, remove, or override individual line items on a DRAFT slip before finalizing (e.g. one-time bonus, manual correction)
+- **Rule-based recalculation** — if tax rules are moved from `application.yml` to a database table (see DM-007), recalculation would pick up the latest rules automatically, enabling retroactive rule changes without a redeploy
