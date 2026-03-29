@@ -11,18 +11,22 @@ import com.talenteo.hr.payroll.domain.LineItemType;
 import com.talenteo.hr.payroll.domain.PayrollLineItem;
 import com.talenteo.hr.payroll.domain.PayrollSlip;
 import com.talenteo.hr.payroll.domain.PayrollStatus;
+import com.talenteo.hr.payroll.dto.BulkPayrollResult;
+import com.talenteo.hr.payroll.dto.BulkPayrollResult.BulkCreatedEntry;
+import com.talenteo.hr.payroll.dto.BulkPayrollResult.BulkSkippedEntry;
 import com.talenteo.hr.payroll.dto.PayrollSlipDto;
 import com.talenteo.hr.payroll.repository.PayrollSlipRepository;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -109,6 +113,38 @@ public class PayrollService {
                         "Payroll not found for employee " + employeeId + " period " + year + "/" + month));
 
         return modelMapper.map(slip, PayrollSlipDto.class);
+    }
+
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public BulkPayrollResult bulkCalculatePayroll(int year, int month) {
+        List<BulkCreatedEntry> created = new ArrayList<>();
+        List<BulkSkippedEntry> skipped = new ArrayList<>();
+
+        String period = String.format("%04d-%02d", year, month);
+
+        employeeRepository.findWithFilters(EmployeeStatus.ACTIVE, null, Pageable.unpaged())
+                .forEach(employee -> {
+                    String fullName = employee.getFirstName() + " " + employee.getLastName();
+                    try {
+                        calculatePayroll(employee.getId(), year, month);
+                        created.add(BulkCreatedEntry.builder()
+                                .employeeId(employee.getId())
+                                .employeeName(fullName)
+                                .period(period)
+                                .build());
+                    } catch (PayrollAlreadyExistsException e) {
+                        skipped.add(BulkSkippedEntry.builder()
+                                .employeeId(employee.getId())
+                                .employeeName(fullName)
+                                .reason("Payroll already exists for this period")
+                                .build());
+                    }
+                });
+
+        return BulkPayrollResult.builder()
+                .created(created)
+                .skipped(skipped)
+                .build();
     }
 
     public Page<PayrollSlipDto> listPayrollHistory(Long employeeId, Pageable pageable) {
