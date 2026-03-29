@@ -1,0 +1,213 @@
+{
+  "info": {
+    "name": "Talenteo HR API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "employeeId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "year",
+      "value": "2026",
+      "type": "string"
+    },
+    {
+      "key": "month",
+      "value": "3",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Employees",
+      "item": [
+        {
+          "name": "Create Employee",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "employees"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"{{$randomFirstName}}\",\n  \"lastName\": \"{{$randomLastName}}\",\n  \"email\": \"{{$randomEmail}}\",\n  \"hireDate\": \"2025-01-15\",\n  \"department\": \"Engineering\",\n  \"position\": \"Software Engineer\",\n  \"baseSalary\": 75000.00,\n  \"bonus\": 5000.00\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const json = pm.response.json();",
+                  "  pm.collectionVariables.set('employeeId', json.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Employees",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees?page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "employees"],
+              "query": [
+                { "key": "status", "value": "ACTIVE", "disabled": true },
+                { "key": "department", "value": "Engineering", "disabled": true },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" },
+                { "key": "sort", "value": "lastName,asc", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Employee by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees/{{employeeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "employees", "{{employeeId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Employee",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees/{{employeeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "employees", "{{employeeId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"{{$randomFirstName}}\",\n  \"lastName\": \"{{$randomLastName}}\",\n  \"email\": \"{{$randomEmail}}\",\n  \"hireDate\": \"2025-01-15\",\n  \"department\": \"Product\",\n  \"position\": \"Senior Engineer\",\n  \"baseSalary\": 85000.00,\n  \"bonus\": 7500.00\n}"
+            }
+          }
+        },
+        {
+          "name": "Deactivate Employee",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees/{{employeeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "employees", "{{employeeId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payroll",
+      "item": [
+        {
+          "name": "Calculate Payroll",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees/{{employeeId}}/payroll/{{year}}/{{month}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "employees", "{{employeeId}}", "payroll", "{{year}}", "{{month}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Payroll Slip",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees/{{employeeId}}/payroll/{{year}}/{{month}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "employees", "{{employeeId}}", "payroll", "{{year}}", "{{month}}"]
+            }
+          }
+        },
+        {
+          "name": "Recalculate Payroll",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees/{{employeeId}}/payroll/{{year}}/{{month}}/recalculate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "employees", "{{employeeId}}", "payroll", "{{year}}", "{{month}}", "recalculate"]
+            }
+          }
+        },
+        {
+          "name": "Finalize Payroll",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees/{{employeeId}}/payroll/{{year}}/{{month}}/finalize",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "employees", "{{employeeId}}", "payroll", "{{year}}", "{{month}}", "finalize"]
+            }
+          }
+        },
+        {
+          "name": "List Payroll History",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees/{{employeeId}}/payroll?page=0&size=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "employees", "{{employeeId}}", "payroll"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "20" },
+                { "key": "sort", "value": "periodYear,desc", "disabled": true }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bulk Payroll",
+      "item": [
+        {
+          "name": "Bulk Calculate Payroll",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/payroll/bulk",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "payroll", "bulk"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"year\": {{year}},\n  \"month\": {{month}}\n}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
