@@ -919,11 +919,11 @@ Steps:
 3. Return `BulkPayrollResult`
 
 **Acceptance Criteria:**
-- [ ] Only processes `ACTIVE` employees
-- [ ] Employees with existing slips are added to `skipped` — processing continues for the rest
-- [ ] `created` list contains `employeeId`, `employeeName`, `period` (formatted as "YYYY-MM")
-- [ ] `skipped` list contains `employeeId`, `employeeName`, `reason`
-- [ ] Returns 200 even if all employees were skipped
+- [x] Only processes `ACTIVE` employees
+- [x] Employees with existing slips are added to `skipped` — processing continues for the rest
+- [x] `created` list contains `employeeId`, `employeeName`, `period` (formatted as "YYYY-MM")
+- [x] `skipped` list contains `employeeId`, `employeeName`, `reason`
+- [x] Returns 200 even if all employees were skipped
 
 **Technical Notes:**
 - UC-PR-02, UC-004 conflict behavior
@@ -945,9 +945,9 @@ Add to the existing `PayrollController`:
 - `@Operation` and `@ApiResponse` Swagger annotations
 
 **Acceptance Criteria:**
-- [ ] Endpoint returns 200 with `BulkPayrollResult`
-- [ ] `@Valid` enforces year/month constraints
-- [ ] Swagger UI displays the bulk endpoint
+- [x] Endpoint returns 200 with `BulkPayrollResult`
+- [x] `@Valid` enforces year/month constraints
+- [x] Swagger UI displays the bulk endpoint
 
 **Technical Notes:**
 - `BulkPayrollRequest` already defined in US-22
